@@ -1,50 +1,160 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+canvas.width = 400; canvas.height = 600;
 
-* { box-sizing: border-box; user-select: none; }
-body {
-  margin: 0; padding: 0; background: #a2d2ff;
-  display: flex; justify-content: center; align-items: center;
-  min-height: 100vh; overflow: hidden; font-family: 'Press Start 2P', cursive;
+let gameSpeed, score, gameActive = false;
+let player = { x: 165, y: 500, w: 70, h: 55 };
+let obstacles = [];
+let keys = {};
+let waterOffset = 0;
+let beat = 0;
+
+// --- AUDIO ENGINE ---
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function playTone(freq, type, duration, volume) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + duration);
 }
 
-#game-wrapper {
-  position: relative; width: 100%; max-width: 400px; height: 600px;
-  background: #81ecec; border: 10px solid #ffffff; border-radius: 12px;
-  box-shadow: 0 15px 0 #63cdda, 0 25px 30px rgba(0,0,0,0.15); overflow: hidden;
+function playMusic() {
+    if (!gameActive) return;
+    const tempo = Math.max(140, 280 - (gameSpeed * 8)); 
+    if (beat % 2 === 0) playTone(110, 'triangle', 0.2, 0.1); 
+    else playTone(146.83, 'triangle', 0.2, 0.05);
+    if (beat % 4 === 0) {
+        const notes = [440, 523, 587, 659];
+        playTone(notes[Math.floor(Math.random()*notes.length)], 'square', 0.1, 0.02);
+    }
+    beat++;
+    setTimeout(playMusic, tempo);
 }
 
-canvas { display: block; width: 100%; height: 100%; image-rendering: auto; }
-
-#ui-layer {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  justify-content: center; align-items: center; z-index: 10; pointer-events: none;
+// --- RENDERING ---
+function drawPlayer(x, y) {
+    const cx = x + 35; const cy = y + 25;
+    // Shadow
+    ctx.fillStyle = "rgba(0,0,0,0.15)";
+    ctx.beginPath(); ctx.ellipse(cx, y + 52, 35, 8, 0, 0, Math.PI * 2); ctx.fill();
+    // Arms
+    ctx.fillStyle = "#e0ac69";
+    ctx.beginPath(); ctx.ellipse(x+5, y+25, 12, 8, 0.8, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x+65, y+25, 12, 8, -0.8, 0, Math.PI*2); ctx.fill();
+    // Torso (Shaded)
+    let grad = ctx.createRadialGradient(cx, cy, 5, cx, cy, 40);
+    grad.addColorStop(0, "#ffdbac"); grad.addColorStop(1, "#f1c27d");
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.roundRect(x+10, y+10, 50, 42, [25, 25, 15, 15]); ctx.fill();
+    // Detail lines
+    ctx.strokeStyle = "rgba(0,0,0,0.1)"; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(cx, y+15); ctx.lineTo(cx, y+35); ctx.stroke(); // Spine
+    ctx.beginPath(); ctx.moveTo(x+15, y+38); ctx.quadraticCurveTo(cx, y+43, x+55, y+38); ctx.stroke(); // Roll
+    // Head & Hair
+    ctx.fillStyle = "#3d2b1f"; ctx.beginPath(); ctx.arc(cx, y+5, 12, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = "#ffdbac"; ctx.fillRect(cx-12, y+5, 24, 7);
+    // Shiny Floaties
+    const drawF = (fx) => {
+        ctx.fillStyle = "#ff9f43"; ctx.beginPath(); ctx.roundRect(fx, y+18, 20, 24, 8); ctx.fill();
+        ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.beginPath(); ctx.ellipse(fx+6, y+25, 3, 6, 0.2, 0, Math.PI*2); ctx.fill();
+    };
+    drawF(x-5); drawF(x+55);
+    // Trunks
+    ctx.fillStyle = "#0984e3"; ctx.beginPath(); ctx.roundRect(x+10, y+45, 50, 10, [0, 0, 12, 12]); ctx.fill();
 }
 
-.menu, #game-over, #start-screen, #leaderboard-screen { 
-  pointer-events: auto; text-align: center; width: 85%; 
-  background: rgba(255, 255, 255, 0.2); padding: 20px; border-radius: 15px; backdrop-filter: blur(5px);
+function drawObstacle(obs) {
+    const { x, y, type } = obs;
+    if (type === 'ice-cream') {
+        ctx.fillStyle = "#e67e22"; ctx.beginPath(); ctx.moveTo(x+10, y+15); ctx.lineTo(x+30, y+15); ctx.lineTo(x+20, y+40); ctx.fill();
+        ctx.fillStyle = "#ff75a0"; ctx.beginPath(); ctx.arc(x+20, y+12, 12, 0, Math.PI*2); ctx.fill();
+    } else if (type === 'poo') {
+        ctx.fillStyle = "#634832"; ctx.fillRect(x+5, y+25, 30, 10); ctx.fillRect(x+10, y+15, 20, 10); ctx.fillRect(x+15, y+5, 10, 10);
+    } else { // puddle
+        ctx.fillStyle = "rgba(255, 234, 167, 0.7)"; ctx.beginPath(); ctx.ellipse(x+20, y+20, 25, 15, 0, 0, Math.PI*2); ctx.fill();
+    }
 }
 
-.pixel-text { color: #ff7675; text-shadow: 2px 2px 0px #ffffff; line-height: 1.6; margin: 10px 0; }
-
-#score {
-  position: absolute; top: 30px; left: 50%; transform: translateX(-50%);
-  font-size: 20px; color: #ffffff; text-shadow: 3px 3px 0px rgba(0,0,0,0.2); pointer-events: none;
+// --- GAME ENGINE ---
+function startGame() {
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    gameSpeed = 4; score = 0; gameActive = true; obstacles = []; player.x = 165;
+    document.getElementById('start-screen').style.display = 'none';
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('leaderboard-screen').style.display = 'none';
+    document.getElementById('score').style.display = 'block';
+    playMusic(); animate();
 }
 
-button {
-  display: block; width: 100%; margin: 10px auto; padding: 15px;
-  font-family: 'Press Start 2P', cursive; font-size: 10px;
-  background: #fd79a8; color: #ffffff; border: 4px solid #ffffff;
-  border-bottom: 8px solid #e84393; border-radius: 8px; cursor: pointer;
+function spawnObstacle() {
+    if (obstacles.length < 7 && Math.random() < 0.04) {
+        const lane = Math.floor(Math.random() * 3);
+        const newX = 55 + (lane * 100);
+        if (!obstacles.some(o => Math.abs(o.y - (-50)) < 150)) {
+            obstacles.push({ x: newX, y: -50, type: ['ice-cream', 'poo', 'puddle'][Math.floor(Math.random()*3)], w: 40, h: 40 });
+        }
+    }
 }
 
-button:active { transform: translateY(4px); border-bottom-width: 4px; }
+function animate() {
+    if (!gameActive) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Water Texture
+    waterOffset += gameSpeed; if (waterOffset > 40) waterOffset = 0;
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"; ctx.lineWidth = 2;
+    for (let i = -40; i < canvas.height; i += 40) {
+        ctx.beginPath(); ctx.moveTo(45, i + waterOffset);
+        ctx.bezierCurveTo(100, i + waterOffset - 10, 300, i + waterOffset + 10, 355, i + waterOffset); ctx.stroke();
+    }
+    // Edges
+    ctx.fillStyle = "#fd79a8"; ctx.fillRect(0,0,40,600); ctx.fillRect(360,0,40,600);
 
-input {
-  width: 120px; padding: 10px; border: 4px solid #fd79a8; border-radius: 8px;
-  background: white; color: #e84393; outline: none; font-family: 'Press Start 2P';
-  text-align: center; text-transform: uppercase; margin-bottom: 10px;
+    if (keys['ArrowLeft'] && player.x > 45) player.x -= 7;
+    if (keys['ArrowRight'] && player.x < 285) player.x += 7;
+
+    drawPlayer(player.x, player.y);
+    spawnObstacle();
+    gameSpeed = 4 + (Math.floor(score / 10) * 0.5); 
+
+    obstacles.forEach((obs, i) => {
+        obs.y += gameSpeed; drawObstacle(obs);
+        if (player.x < obs.x+obs.w && player.x+player.w > obs.x && player.y < obs.y+obs.h && player.y+player.h > obs.y) {
+            playTone(150, 'sawtooth', 0.5, 0.1); endGame();
+        }
+        if (obs.y > 600) { obstacles.splice(i, 1); score++; document.getElementById('score').innerText = score + "m"; }
+    });
+    requestAnimationFrame(animate);
 }
 
-#leaderboard-list { font-size: 10px; margin: 15px 0; text-align: left; padding-left: 20px; }
+function endGame() {
+    gameActive = false;
+    document.getElementById('game-over').style.display = 'block';
+    document.getElementById('final-score-text').innerText = `RESULT: ${score}m`;
+}
+
+function saveAndShowLeaderboard() {
+    let init = document.getElementById('player-initials').value.toUpperCase() || "AAA";
+    let scores = JSON.parse(localStorage.getItem('slideScores')) || [];
+    scores.push({ initials: init, score });
+    scores.sort((a, b) => b.score - a.score);
+    scores = scores.slice(0, 5);
+    localStorage.setItem('slideScores', JSON.stringify(scores));
+    
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('leaderboard-screen').style.display = 'block';
+    document.getElementById('leaderboard-list').innerHTML = scores.map((s,i) => `<div>${i+1}. ${s.initials} - ${s.score}m</div>`).join('');
+}
+
+function resetGame() { location.reload(); }
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+// Init Best Score on Home
+const scores = JSON.parse(localStorage.getItem('slideScores')) || [];
+if(scores.length > 0) document.getElementById('best-score-display').innerText = `BEST: ${scores[0].score}m`;

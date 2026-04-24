@@ -63,33 +63,4 @@ function drawPlayer(x, y) {
 }
 
 function drawObstacle(obs) {
-    const { x, y, type } = obs;
-    if (type === 'ice-cream') {
-        ctx.fillStyle = "#e67e22"; ctx.beginPath(); ctx.moveTo(x+10, y+15); ctx.lineTo(x+30, y+15); ctx.lineTo(x+20, y+40); ctx.fill();
-        ctx.fillStyle = "#ff75a0"; ctx.beginPath(); ctx.arc(x+20, y+12, 12, 0, Math.PI*2); ctx.fill();
-    } else if (type === 'poo') {
-        ctx.fillStyle = "#634832"; ctx.fillRect(x+5, y+25, 30, 10); ctx.fillRect(x+10, y+15, 20, 10); ctx.fillRect(x+15, y+5, 10, 10);
-    } else {
-        ctx.fillStyle = "rgba(255, 234, 167, 0.7)"; ctx.beginPath(); ctx.ellipse(x+20, y+20, 25, 15, 0, 0, Math.PI*2); ctx.fill();
-    }
-}
-
-// --- GAME ENGINE ---
-function startGame() {
-    if (audioCtx.state === 'suspended') audioCtx.resume();
-    gameSpeed = 4; score = 0; scoreFrameCounter = 0; gameActive = true; obstacles = []; player.x = 165;
-    document.getElementById('start-screen').style.display = 'none';
-    document.getElementById('game-over').style.display = 'none';
-    document.getElementById('leaderboard-screen').style.display = 'none';
-    document.getElementById('score').style.display = 'block';
-    document.getElementById('score').innerText = "0m";
-    playMusic(); animate();
-}
-
-function spawnObstacle() {
-    if (obstacles.length < 7 && Math.random() < 0.04) {
-        const lane = Math.floor(Math.random() * 3);
-        const newX = 55 + (lane * 100);
-        if (!obstacles.some(o => Math.abs(o.y - (-50)) < 150)) {
-            obstacles.push({ x: newX, y: -50, type: ['ice-cream', 'poo', 'puddle'][Math.floor(Math.random()*3)], w: 40, h: 40 });
-        }
+    const { x

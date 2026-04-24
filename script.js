@@ -8,6 +8,7 @@ let obstacles = [];
 let keys = {};
 let waterOffset = 0;
 let beat = 0;
+let scoreFrameCounter = 0; // Tracks frames to count seconds
 
 // --- AUDIO ENGINE ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -39,32 +40,25 @@ function playMusic() {
 // --- RENDERING ---
 function drawPlayer(x, y) {
     const cx = x + 35; const cy = y + 25;
-    // Shadow
     ctx.fillStyle = "rgba(0,0,0,0.15)";
     ctx.beginPath(); ctx.ellipse(cx, y + 52, 35, 8, 0, 0, Math.PI * 2); ctx.fill();
-    // Arms
     ctx.fillStyle = "#e0ac69";
     ctx.beginPath(); ctx.ellipse(x+5, y+25, 12, 8, 0.8, 0, Math.PI*2); ctx.fill();
     ctx.beginPath(); ctx.ellipse(x+65, y+25, 12, 8, -0.8, 0, Math.PI*2); ctx.fill();
-    // Torso (Shaded)
     let grad = ctx.createRadialGradient(cx, cy, 5, cx, cy, 40);
     grad.addColorStop(0, "#ffdbac"); grad.addColorStop(1, "#f1c27d");
     ctx.fillStyle = grad;
     ctx.beginPath(); ctx.roundRect(x+10, y+10, 50, 42, [25, 25, 15, 15]); ctx.fill();
-    // Detail lines
     ctx.strokeStyle = "rgba(0,0,0,0.1)"; ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(cx, y+15); ctx.lineTo(cx, y+35); ctx.stroke(); // Spine
-    ctx.beginPath(); ctx.moveTo(x+15, y+38); ctx.quadraticCurveTo(cx, y+43, x+55, y+38); ctx.stroke(); // Roll
-    // Head & Hair
+    ctx.beginPath(); ctx.moveTo(cx, y+15); ctx.lineTo(cx, y+35); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+15, y+38); ctx.quadraticCurveTo(cx, y+43, x+55, y+38); ctx.stroke();
     ctx.fillStyle = "#3d2b1f"; ctx.beginPath(); ctx.arc(cx, y+5, 12, Math.PI, 0); ctx.fill();
     ctx.fillStyle = "#ffdbac"; ctx.fillRect(cx-12, y+5, 24, 7);
-    // Shiny Floaties
     const drawF = (fx) => {
         ctx.fillStyle = "#ff9f43"; ctx.beginPath(); ctx.roundRect(fx, y+18, 20, 24, 8); ctx.fill();
         ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.beginPath(); ctx.ellipse(fx+6, y+25, 3, 6, 0.2, 0, Math.PI*2); ctx.fill();
     };
     drawF(x-5); drawF(x+55);
-    // Trunks
     ctx.fillStyle = "#0984e3"; ctx.beginPath(); ctx.roundRect(x+10, y+45, 50, 10, [0, 0, 12, 12]); ctx.fill();
 }
 
@@ -75,7 +69,7 @@ function drawObstacle(obs) {
         ctx.fillStyle = "#ff75a0"; ctx.beginPath(); ctx.arc(x+20, y+12, 12, 0, Math.PI*2); ctx.fill();
     } else if (type === 'poo') {
         ctx.fillStyle = "#634832"; ctx.fillRect(x+5, y+25, 30, 10); ctx.fillRect(x+10, y+15, 20, 10); ctx.fillRect(x+15, y+5, 10, 10);
-    } else { // puddle
+    } else {
         ctx.fillStyle = "rgba(255, 234, 167, 0.7)"; ctx.beginPath(); ctx.ellipse(x+20, y+20, 25, 15, 0, 0, Math.PI*2); ctx.fill();
     }
 }
@@ -83,11 +77,12 @@ function drawObstacle(obs) {
 // --- GAME ENGINE ---
 function startGame() {
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    gameSpeed = 4; score = 0; gameActive = true; obstacles = []; player.x = 165;
+    gameSpeed = 4; score = 0; scoreFrameCounter = 0; gameActive = true; obstacles = []; player.x = 165;
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
     document.getElementById('leaderboard-screen').style.display = 'none';
     document.getElementById('score').style.display = 'block';
+    document.getElementById('score').innerText = "0m";
     playMusic(); animate();
 }
 
@@ -98,63 +93,3 @@ function spawnObstacle() {
         if (!obstacles.some(o => Math.abs(o.y - (-50)) < 150)) {
             obstacles.push({ x: newX, y: -50, type: ['ice-cream', 'poo', 'puddle'][Math.floor(Math.random()*3)], w: 40, h: 40 });
         }
-    }
-}
-
-function animate() {
-    if (!gameActive) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Water Texture
-    waterOffset += gameSpeed; if (waterOffset > 40) waterOffset = 0;
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"; ctx.lineWidth = 2;
-    for (let i = -40; i < canvas.height; i += 40) {
-        ctx.beginPath(); ctx.moveTo(45, i + waterOffset);
-        ctx.bezierCurveTo(100, i + waterOffset - 10, 300, i + waterOffset + 10, 355, i + waterOffset); ctx.stroke();
-    }
-    // Edges
-    ctx.fillStyle = "#fd79a8"; ctx.fillRect(0,0,40,600); ctx.fillRect(360,0,40,600);
-
-    if (keys['ArrowLeft'] && player.x > 45) player.x -= 7;
-    if (keys['ArrowRight'] && player.x < 285) player.x += 7;
-
-    drawPlayer(player.x, player.y);
-    spawnObstacle();
-    gameSpeed = 4 + (Math.floor(score / 10) * 0.5); 
-
-    obstacles.forEach((obs, i) => {
-        obs.y += gameSpeed; drawObstacle(obs);
-        if (player.x < obs.x+obs.w && player.x+player.w > obs.x && player.y < obs.y+obs.h && player.y+player.h > obs.y) {
-            playTone(150, 'sawtooth', 0.5, 0.1); endGame();
-        }
-        if (obs.y > 600) { obstacles.splice(i, 1); score++; document.getElementById('score').innerText = score + "m"; }
-    });
-    requestAnimationFrame(animate);
-}
-
-function endGame() {
-    gameActive = false;
-    document.getElementById('game-over').style.display = 'block';
-    document.getElementById('final-score-text').innerText = `RESULT: ${score}m`;
-}
-
-function saveAndShowLeaderboard() {
-    let init = document.getElementById('player-initials').value.toUpperCase() || "AAA";
-    let scores = JSON.parse(localStorage.getItem('slideScores')) || [];
-    scores.push({ initials: init, score });
-    scores.sort((a, b) => b.score - a.score);
-    scores = scores.slice(0, 5);
-    localStorage.setItem('slideScores', JSON.stringify(scores));
-    
-    document.getElementById('game-over').style.display = 'none';
-    document.getElementById('leaderboard-screen').style.display = 'block';
-    document.getElementById('leaderboard-list').innerHTML = scores.map((s,i) => `<div>${i+1}. ${s.initials} - ${s.score}m</div>`).join('');
-}
-
-function resetGame() { location.reload(); }
-window.addEventListener('keydown', e => keys[e.code] = true);
-window.addEventListener('keyup', e => keys[e.code] = false);
-
-// Init Best Score on Home
-const scores = JSON.parse(localStorage.getItem('slideScores')) || [];
-if(scores.length > 0) document.getElementById('best-score-display').innerText = `BEST: ${scores[0].score}m`;

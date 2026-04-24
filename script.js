@@ -8,22 +8,21 @@ let obstacles = [];
 let keys = {};
 let waterOffset = 0;
 let beat = 0;
-let scoreInterval = null; 
+let scoreInterval = null;
 
 // --- AUDIO ENGINE ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function playTone(freq, type, duration, volume) {
-    try {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-        gain.gain.setValueAtTime(volume, audioCtx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.0010, audioCtx.currentTime + duration);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + duration);
-    } catch(e) { console.log("Audio error:", e); }
+    if (audioCtx.state === 'suspended') return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type;
+    osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+    gain.gain.setValueAtTime(volume, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0010, audioCtx.currentTime + duration);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + duration);
 }
 
 function playMusic() {
@@ -35,7 +34,7 @@ function playMusic() {
     setTimeout(playMusic, tempo);
 }
 
-// --- RENDERING (Your Original Graphics) ---
+// --- DRAWING ---
 function drawPlayer(x, y) {
     const cx = x + 35; const cy = y + 25;
     ctx.fillStyle = "rgba(0,0,0,0.15)";
@@ -69,25 +68,22 @@ function drawObstacle(obs) {
     }
 }
 
-// --- GAME ENGINE ---
+// --- GAME LOGIC ---
 function startGame() {
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    
-    // Reset Logic
     gameActive = true;
     score = 0;
     gameSpeed = 4;
     obstacles = [];
     player.x = 165;
 
-    // UI Cleanup
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
     document.getElementById('leaderboard-screen').style.display = 'none';
     document.getElementById('score').style.display = 'block';
     document.getElementById('score').innerText = "0m";
 
-    // METER TIMER (The 1-second logic)
+    // METER COUNT: Ticks up 1m per second
     if (scoreInterval) clearInterval(scoreInterval);
     scoreInterval = setInterval(() => {
         if (gameActive) {
@@ -104,7 +100,7 @@ function animate() {
     if (!gameActive) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Water Texture
+    // Background Water
     waterOffset += gameSpeed; if (waterOffset > 40) waterOffset = 0;
     ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"; ctx.lineWidth = 2;
     for (let i = -40; i < canvas.height; i += 40) {
@@ -113,18 +109,16 @@ function animate() {
     }
     ctx.fillStyle = "#fd79a8"; ctx.fillRect(0,0,40,600); ctx.fillRect(360,0,40,600);
 
-    // Movement
+    // Player Movement
     if (keys['ArrowLeft'] && player.x > 45) player.x -= 7;
     if (keys['ArrowRight'] && player.x < 285) player.x += 7;
-
     drawPlayer(player.x, player.y);
 
-    // Spawning
+    // Obstacles
     if (obstacles.length < 6 && Math.random() < 0.04) {
         const lane = Math.floor(Math.random() * 3);
         obstacles.push({ 
-            x: 55 + (lane * 100), 
-            y: -50, 
+            x: 55 + (lane * 100), y: -50, 
             type: ['ice-cream', 'poo', 'puddle'][Math.floor(Math.random()*3)], 
             w: 40, h: 40 
         });
@@ -133,9 +127,8 @@ function animate() {
     obstacles.forEach((obs, i) => {
         obs.y += gameSpeed;
         drawObstacle(obs);
-        
-        // Collision
         if (player.x < obs.x+obs.w && player.x+player.w > obs.x && player.y < obs.y+obs.h && player.y+player.h > obs.y) {
+            playTone(150, 'sawtooth', 0.5, 0.1); 
             endGame();
         }
         if (obs.y > 600) obstacles.splice(i, 1);
@@ -162,6 +155,7 @@ function saveAndShowLeaderboard() {
 }
 
 function resetGame() { location.reload(); }
+
 window.addEventListener('keydown', e => keys[e.code] = true);
 window.addEventListener('keyup', e => keys[e.code] = false);
 

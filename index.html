@@ -2,34 +2,45 @@
 "stylesheet" href=
 "style.css"
 >
-<div id="game-wrapper">
-  <div id="ui-layer">
-    <div id="start-screen">
-      <h1 class="pixel-text">DON'T SLIP!</h1>
-      <p class="pixel-text" id="best-score-display">BEST: 0m</p>
-      <div class="menu">
-        <button onclick="startGame()">START SLIDING</button>
-      </div>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Don't Slip!</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-wrapper">
+        <div id="ui-layer">
+            <div id="start-screen">
+                <h1 class="pixel-text">DON'T SLIP!</h1>
+                <p class="pixel-text" id="best-score-display">BEST: 0m</p>
+                <div class="menu">
+                    <button onclick="startGame()">START SLIDING</button>
+                </div>
+            </div>
+
+            <div id="game-over" style="display:none;">
+                <h1 class="pixel-text">WIPEOUT!</h1>
+                <p class="pixel-text" id="final-score-text"></p>
+                <input type="text" id="player-initials" maxlength="3" placeholder="AAA">
+                <button onclick="saveAndShowLeaderboard()">SAVE SCORE</button>
+            </div>
+
+            <div id="leaderboard-screen" style="display:none;">
+                <h1 class="pixel-text">TOP SLIDERS</h1>
+                <div id="leaderboard-list" class="pixel-text"></div>
+                <button onclick="resetGame()">MAIN MENU</button>
+            </div>
+
+            <div id="score" class="pixel-text" style="display:none;">0m</div>
+        </div>
+        <canvas id="gameCanvas"></canvas>
     </div>
-
-    <div id="game-over" style="display:none;">
-      <h1 class="pixel-text">WIPEOUT!</h1>
-      <p class="pixel-text" id="final-score-text"></p>
-      <input type="text" id="player-initials" maxlength="3" placeholder="AAA">
-      <button onclick="saveAndShowLeaderboard()">SAVE SCORE</button>
-    </div>
-
-    <div id="leaderboard-screen" style="display:none;">
-      <h1 class="pixel-text">TOP SLIDERS</h1>
-      <div id="leaderboard-list" class="pixel-text"></div>
-      <button onclick="resetGame()">MAIN MENU</button>
-    </div>
-
-    <div id="score" class="pixel-text" style="display:none;">0m</div>
-  </div>
-  <canvas id="gameCanvas"></canvas>
-</div>
-
+    <script src="script.js"></script>
+</body>
+</html>
 <script src=
 "script.js"
 ></script>

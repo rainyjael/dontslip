@@ -20,27 +20,22 @@
                     <button onclick="startGame()">START SLIDING</button>
                 </div>
             </div>
-
             <div id="game-over" style="display:none;">
                 <h1 class="pixel-text">WIPEOUT!</h1>
                 <p class="pixel-text" id="final-score-text"></p>
                 <input type="text" id="player-initials" maxlength="3" placeholder="AAA">
                 <button onclick="saveAndShowLeaderboard()">SAVE SCORE</button>
             </div>
-
             <div id="leaderboard-screen" style="display:none;">
                 <h1 class="pixel-text">TOP SLIDERS</h1>
                 <div id="leaderboard-list" class="pixel-text"></div>
                 <button onclick="resetGame()">MAIN MENU</button>
             </div>
-
             <div id="score" class="pixel-text" style="display:none;">0m</div>
         </div>
         <canvas id="gameCanvas"></canvas>
     </div>
     <script src="script.js"></script>
-</body>
-</html>
 </body>
 </html>
 <script src=

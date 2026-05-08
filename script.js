@@ -160,7 +160,7 @@ function animate() {
         if (obs.y > 600) obstacles.splice(i, 1);
     });
 
-    gameSpeed = 4 + (Math.floor(score / 10) * 0.5);
+    gameSpeed = 6 + (Math.floor(score / 10) * 1.3);
     requestAnimationFrame(animate);
 }
 

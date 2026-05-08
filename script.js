@@ -10,8 +10,11 @@ let keys = {};
 let waterOffset = 0;
 let beat = 0;
 let scoreInterval = null;
+
+// POWER-UP STATES
 let isInvincible = false;
-const hitboxMargin = 15; // Makes the game easier/realistic hitbox
+let isSlowMo = false; 
+const hitboxMargin = 15; 
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -29,7 +32,11 @@ function playTone(freq, type, duration, volume) {
 
 function playMusic() {
     if (!gameActive) return;
-    const tempo = isInvincible ? 100 : Math.max(140, 280 - (gameSpeed * 8)); 
+    let tempo;
+    if (isInvincible) tempo = 100;
+    else if (isSlowMo) tempo = 400; // Slower music for slow-mo
+    else tempo = Math.max(140, 280 - (gameSpeed * 8));
+
     if (beat % 2 === 0) playTone(isInvincible ? 440 : 110, 'triangle', 0.2, 0.1); 
     else playTone(isInvincible ? 554 : 146.83, 'triangle', 0.2, 0.05);
     beat++;
@@ -41,8 +48,8 @@ function playMusic() {
 function drawPlayer(x, y) {
     const cx = x + 35; const cy = y + 25;
     if (isInvincible) { ctx.shadowBlur = 20; ctx.shadowColor = "#fff200"; }
+    if (isSlowMo) { ctx.shadowBlur = 10; ctx.shadowColor = "#a2d2ff"; }
     
-    // Body & Animation
     const armWave = Math.sin(Date.now() / 150) * 4;
     ctx.fillStyle = "#f1c27d";
     ctx.beginPath(); ctx.ellipse(x + 5, y + 30 + armWave, 6, 12, 0.4, 0, Math.PI * 2); ctx.fill();
@@ -61,8 +68,6 @@ function drawLifeJacket(pu) {
     const { x, y } = pu;
     const bounce = Math.sin(Date.now() / 300) * 10;
     const drawY = y + bounce;
-
-    // Rays
     ctx.save();
     ctx.translate(x + 20, drawY + 22);
     ctx.strokeStyle = "rgba(255, 242, 0, 0.6)";
@@ -72,8 +77,6 @@ function drawLifeJacket(pu) {
         ctx.beginPath(); ctx.moveTo(25, 0); ctx.lineTo(45, 0); ctx.stroke();
     }
     ctx.restore();
-
-    // Jacket
     ctx.fillStyle = "#ff7f50";
     ctx.beginPath(); ctx.roundRect(x, drawY, 40, 45, 8); ctx.fill();
     ctx.fillStyle = "#81ecec"; ctx.fillRect(x + 15, drawY + 5, 10, 40);
@@ -99,20 +102,29 @@ function drawObstacle(obs) {
     }
 }
 
-// --- LOGIC ---
+// --- POWER-UP LOGIC ---
 
 function activatePowerUp() {
     isInvincible = true;
-    let oldSpeed = gameSpeed;
+    isSlowMo = false; 
     gameSpeed = 30; 
     playTone(523, 'square', 0.5, 0.1);
+    
     let gained = 0;
     let boost = setInterval(() => {
         score++; gained++;
         document.getElementById('score').innerText = score + "m";
-        if (gained >= 75) { clearInterval(boost); isInvincible = false; gameSpeed = oldSpeed; }
+        if (gained >= 75) { 
+            clearInterval(boost); 
+            isInvincible = false;
+            // Enter Slow-Mo recovery
+            isSlowMo = true;
+            setTimeout(() => { isSlowMo = false; }, 5000); 
+        }
     }, 30);
 }
+
+// --- MAIN LOOP ---
 
 function startGame() {
     if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -130,11 +142,17 @@ function animate() {
     if (!gameActive) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Speed Control logic
+    if (!isInvincible) {
+        if (isSlowMo) gameSpeed = 2;
+        else gameSpeed = 5 + (Math.floor(score / 10) * 1.2);
+    }
+
     waterOffset += gameSpeed * 0.4;
     if (waterOffset > 100) waterOffset = 0;
     for (let i = -100; i < canvas.height; i += 50) {
         ctx.beginPath();
-        ctx.strokeStyle = isInvincible ? "white" : `rgba(255, 255, 255, ${0.15 + (Math.sin(i + waterOffset) * 0.05)})`;
+        ctx.strokeStyle = isInvincible ? "white" : (isSlowMo ? "rgba(255,255,255,0.4)" : `rgba(255, 255, 255, ${0.15 + (Math.sin(i + waterOffset) * 0.05)})`);
         ctx.lineWidth = isInvincible ? 6 : 3;
         ctx.moveTo(40, i + waterOffset);
         ctx.bezierCurveTo(150, i + waterOffset - 25, 250, i + waterOffset + 25, 360, i + waterOffset);
@@ -147,7 +165,6 @@ function animate() {
     if (keys['ArrowRight'] && player.x < 285) player.x += 7;
     drawPlayer(player.x, player.y);
 
-    // Spawning
     if (!isInvincible && Math.random() < 0.05) {
         const lane = Math.floor(Math.random() * 3);
         if (obstacles.filter(o => o.y < 120).length < 2) {
@@ -158,7 +175,6 @@ function animate() {
         powerUps.push({ x: 65 + (Math.floor(Math.random() * 3) * 100), y: -100, w: 40, h: 45 });
     }
 
-    // Powerups Update
     powerUps.forEach((pu, i) => {
         pu.y += gameSpeed; drawLifeJacket(pu);
         if (player.x < pu.x + pu.w && player.x + player.w > pu.x && player.y < pu.y + pu.h && player.y + player.h > pu.y) {
@@ -167,7 +183,6 @@ function animate() {
         if (pu.y > 600) powerUps.splice(i, 1);
     });
 
-    // Obstacles Update (SHRUNKEN HITBOX)
     obstacles.forEach((obs, i) => {
         obs.y += gameSpeed; drawObstacle(obs);
         if (!isInvincible) {
@@ -181,7 +196,6 @@ function animate() {
         if (obs.y > 600) obstacles.splice(i, 1);
     });
 
-    if (!isInvincible) gameSpeed = 6 + (Math.floor(score / 10) * 1.3);
     requestAnimationFrame(animate);
 }
 

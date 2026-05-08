@@ -10,7 +10,6 @@ let waterOffset = 0;
 let beat = 0;
 let scoreInterval = null;
 
-// --- AUDIO ENGINE ---
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
 function playTone(freq, type, duration, volume) {
@@ -34,79 +33,104 @@ function playMusic() {
     setTimeout(playMusic, tempo);
 }
 
-// --- DRAWING ---
+// --- REALISTIC DRAWING FUNCTIONS ---
+
 function drawPlayer(x, y) {
-    const cx = x + 35; const cy = y + 25;
+    const cx = x + 35;
+    const cy = y + 25;
+
+    // Shadow
     ctx.fillStyle = "rgba(0,0,0,0.15)";
-    ctx.beginPath(); ctx.ellipse(cx, y + 52, 35, 8, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = "#e0ac69";
-    ctx.beginPath(); ctx.ellipse(x+5, y+25, 12, 8, 0.8, 0, Math.PI*2); ctx.fill();
-    ctx.beginPath(); ctx.ellipse(x+65, y+25, 12, 8, -0.8, 0, Math.PI*2); ctx.fill();
-    let grad = ctx.createRadialGradient(cx, cy, 5, cx, cy, 40);
-    grad.addColorStop(0, "#ffdbac"); grad.addColorStop(1, "#f1c27d");
-    ctx.fillStyle = grad;
-    ctx.beginPath(); ctx.roundRect(x+10, y+10, 50, 42, [25, 25, 15, 15]); ctx.fill();
-    ctx.fillStyle = "#3d2b1f"; ctx.beginPath(); ctx.arc(cx, y+5, 12, Math.PI, 0); ctx.fill();
-    ctx.fillStyle = "#ffdbac"; ctx.fillRect(cx-12, y+5, 24, 7);
-    const drawF = (fx) => {
-        ctx.fillStyle = "#ff9f43"; ctx.beginPath(); ctx.roundRect(fx, y+18, 20, 24, 8); ctx.fill();
-        ctx.fillStyle = "rgba(255,255,255,0.4)"; ctx.beginPath(); ctx.ellipse(fx+6, y+25, 3, 6, 0.2, 0, Math.PI*2); ctx.fill();
-    };
-    drawF(x-5); drawF(x+55);
-    ctx.fillStyle = "#0984e3"; ctx.beginPath(); ctx.roundRect(x+10, y+45, 50, 10, [0, 0, 12, 12]); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx, y + 55, 30, 8, 0, 0, Math.PI * 2); ctx.fill();
+
+    // Arms wiggling
+    const armWave = Math.sin(Date.now() / 150) * 4;
+    ctx.fillStyle = "#f1c27d";
+    ctx.beginPath(); ctx.ellipse(x + 5, y + 30 + armWave, 6, 12, 0.4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(x + 65, y + 30 - armWave, 6, 12, -0.4, 0, Math.PI * 2); ctx.fill();
+
+    // The Floatie (Inner Tube)
+    ctx.strokeStyle = "#ff4757"; ctx.lineWidth = 10;
+    ctx.beginPath(); ctx.ellipse(cx, cy + 10, 26, 16, 0, 0, Math.PI * 2); ctx.stroke();
+
+    // Head with skin gradient
+    let skinGrad = ctx.createRadialGradient(cx, cy - 5, 2, cx, cy - 5, 15);
+    skinGrad.addColorStop(0, "#ffdbac"); skinGrad.addColorStop(1, "#f1c27d");
+    ctx.fillStyle = skinGrad;
+    ctx.beginPath(); ctx.arc(cx, cy - 5, 15, 0, Math.PI * 2); ctx.fill(); 
+    
+    // Swim Cap
+    ctx.fillStyle = "#0984e3";
+    ctx.beginPath(); ctx.arc(cx, cy - 8, 15, Math.PI, 0); ctx.fill(); 
+
+    // Eyes
+    ctx.fillStyle = "#000";
+    ctx.beginPath(); ctx.arc(cx - 5, cy - 5, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx + 5, cy - 5, 2, 0, Math.PI * 2); ctx.fill();
 }
 
 function drawObstacle(obs) {
     const { x, y, type } = obs;
+    
     if (type === 'ice-cream') {
-        ctx.fillStyle = "#e67e22"; ctx.beginPath(); ctx.moveTo(x+10, y+15); ctx.lineTo(x+30, y+15); ctx.lineTo(x+20, y+40); ctx.fill();
-        ctx.fillStyle = "#ff75a0"; ctx.beginPath(); ctx.arc(x+20, y+12, 12, 0, Math.PI*2); ctx.fill();
+        // Spilled splat puddle
+        ctx.fillStyle = "#ff7eb9";
+        ctx.beginPath(); ctx.ellipse(x+20, y+32, 18, 10, 0, 0, Math.PI*2); ctx.fill();
+        ctx.beginPath(); ctx.arc(x+10, y+35, 6, 0, Math.PI*2); ctx.fill();
+        // Upside down cone
+        ctx.fillStyle = "#deab5d";
+        ctx.beginPath();
+        ctx.moveTo(x+8, y+28); ctx.lineTo(x+32, y+28); ctx.lineTo(x+20, y+5); ctx.closePath();
+        ctx.fill();
+        // Cone detail lines
+        ctx.strokeStyle = "rgba(0,0,0,0.1)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(x+15, y+28); ctx.lineTo(x+20, y+5); ctx.stroke();
     } else if (type === 'poo') {
-        ctx.fillStyle = "#634832"; ctx.fillRect(x+5, y+25, 30, 10); ctx.fillRect(x+10, y+15, 20, 10); ctx.fillRect(x+15, y+5, 10, 10);
+        ctx.fillStyle = "#634832";
+        ctx.beginPath(); ctx.roundRect(x+5, y+25, 30, 12, 10); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(x+10, y+15, 20, 10, 8); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(x+15, y+5, 10, 10, 5); ctx.fill();
     } else {
-        ctx.fillStyle = "rgba(255, 234, 167, 0.7)"; ctx.beginPath(); ctx.ellipse(x+20, y+20, 25, 15, 0, 0, Math.PI*2); ctx.fill();
+        // Puddle
+        ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+        ctx.beginPath(); ctx.ellipse(x+20, y+20, 28, 14, 0.1, 0, Math.PI*2); ctx.fill();
     }
 }
 
-// --- GAME LOGIC ---
+// --- GAME CORE ---
+
 function startGame() {
     if (audioCtx.state === 'suspended') audioCtx.resume();
-    gameActive = true;
-    score = 0;
-    gameSpeed = 4;
-    obstacles = [];
-    player.x = 165;
-
+    gameActive = true; score = 0; gameSpeed = 4; obstacles = []; player.x = 165;
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
     document.getElementById('leaderboard-screen').style.display = 'none';
     document.getElementById('score').style.display = 'block';
     document.getElementById('score').innerText = "0m";
 
-    // METER COUNT: Ticks up 1m per second
     if (scoreInterval) clearInterval(scoreInterval);
-    scoreInterval = setInterval(() => {
-        if (gameActive) {
-            score++;
-            document.getElementById('score').innerText = score + "m";
-        }
-    }, 1000);
+    scoreInterval = setInterval(() => { if (gameActive) score++; document.getElementById('score').innerText = score + "m"; }, 1000);
 
-    playMusic();
-    animate();
+    playMusic(); animate();
 }
 
 function animate() {
     if (!gameActive) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Background Water
-    waterOffset += gameSpeed; if (waterOffset > 40) waterOffset = 0;
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"; ctx.lineWidth = 2;
-    for (let i = -40; i < canvas.height; i += 40) {
-        ctx.beginPath(); ctx.moveTo(45, i + waterOffset);
-        ctx.bezierCurveTo(100, i + waterOffset - 10, 300, i + waterOffset + 10, 355, i + waterOffset); ctx.stroke();
+    // Realistic Moving Water Lines
+    waterOffset += gameSpeed * 0.4;
+    if (waterOffset > 100) waterOffset = 0;
+    for (let i = -100; i < canvas.height; i += 50) {
+        ctx.beginPath();
+        ctx.strokeStyle = `rgba(255, 255, 255, ${0.15 + (Math.sin(i + waterOffset) * 0.05)})`;
+        ctx.lineWidth = 3;
+        ctx.moveTo(40, i + waterOffset);
+        ctx.bezierCurveTo(150, i + waterOffset - 25, 250, i + waterOffset + 25, 360, i + waterOffset);
+        ctx.stroke();
     }
+
+    // Side Walls
     ctx.fillStyle = "#fd79a8"; ctx.fillRect(0,0,40,600); ctx.fillRect(360,0,40,600);
 
     // Player Movement
@@ -114,22 +138,24 @@ function animate() {
     if (keys['ArrowRight'] && player.x < 285) player.x += 7;
     drawPlayer(player.x, player.y);
 
-    // Obstacles
-    if (obstacles.length < 6 && Math.random() < 0.04) {
+    // Smart Spawning: Never block all 3 lanes
+    if (Math.random() < 0.05) {
         const lane = Math.floor(Math.random() * 3);
-        obstacles.push({ 
-            x: 55 + (lane * 100), y: -50, 
-            type: ['ice-cream', 'poo', 'puddle'][Math.floor(Math.random()*3)], 
-            w: 40, h: 40 
-        });
+        const activeTopObstacles = obstacles.filter(o => o.y < 120);
+        if (activeTopObstacles.length < 2) { // Allow max 2 obstacles at once vertically
+            obstacles.push({ 
+                x: 65 + (lane * 100), y: -60, 
+                type: ['ice-cream', 'poo', 'puddle'][Math.floor(Math.random()*3)], 
+                w: 40, h: 40 
+            });
+        }
     }
 
     obstacles.forEach((obs, i) => {
         obs.y += gameSpeed;
         drawObstacle(obs);
         if (player.x < obs.x+obs.w && player.x+player.w > obs.x && player.y < obs.y+obs.h && player.y+player.h > obs.y) {
-            playTone(150, 'sawtooth', 0.5, 0.1); 
-            endGame();
+            playTone(150, 'sawtooth', 0.5, 0.1); endGame();
         }
         if (obs.y > 600) obstacles.splice(i, 1);
     });
@@ -139,8 +165,7 @@ function animate() {
 }
 
 function endGame() {
-    gameActive = false;
-    clearInterval(scoreInterval);
+    gameActive = false; clearInterval(scoreInterval);
     document.getElementById('game-over').style.display = 'block';
     document.getElementById('final-score-text').innerText = `RESULT: ${score}m`;
 }
@@ -150,8 +175,15 @@ function saveAndShowLeaderboard() {
     let scores = JSON.parse(localStorage.getItem('slideScores')) || [];
     scores.push({ initials: init, score });
     scores.sort((a, b) => b.score - a.score);
-    localStorage.setItem('slideScores', JSON.stringify(scores.slice(0, 5)));
-    location.reload();
+    const topScores = scores.slice(0, 5);
+    localStorage.setItem('slideScores', JSON.stringify(topScores));
+    
+    document.getElementById('game-over').style.display = 'none';
+    document.getElementById('leaderboard-screen').style.display = 'block';
+    
+    document.getElementById('leaderboard-list').innerHTML = topScores.map((s, i) => 
+        `<div>${i+1}. ${s.initials} .... ${s.score}m</div>`
+    ).join('');
 }
 
 function resetGame() { location.reload(); }

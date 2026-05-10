@@ -163,13 +163,16 @@ function animate() {
     if (!gameActive) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // --- SPEED CONTROL WITH SMOOTH TRANSITION ---
+    // --- SPEED CONTROL (SMOOTH DECELERATION) ---
     let normalSpeed = 5 + (Math.floor(score / 10) * 1.5);
     if (isInvincible) {
         gameSpeed = 30;
     } else if (isWarning) {
-        // Smoothly decelerate back to normal speed during the countdown
-        if (gameSpeed > normalSpeed) gameSpeed -= 0.3;
+        if (gameSpeed > normalSpeed) {
+            gameSpeed -= 0.2; // Smoothly brakes during countdown
+        } else {
+            gameSpeed = normalSpeed;
+        }
     } else {
         gameSpeed = normalSpeed;
     }
@@ -187,13 +190,12 @@ function animate() {
 
     ctx.fillStyle = "#fd79a8"; ctx.fillRect(0,0,40,600); ctx.fillRect(360,0,40,600);
 
-    // --- CONTROLS (ARROW + WASD) ---
+    // --- UPDATED CONTROLS (ARROWS + A/D) ---
     if ((keys['ArrowLeft'] || keys['KeyA']) && player.x > 45) player.x -= 7;
     if ((keys['ArrowRight'] || keys['KeyD']) && player.x < 285) player.x += 7;
     
     drawPlayer(player.x, player.y);
 
-    // Draw Countdown Text
     if (countdownValue !== "") {
         ctx.fillStyle = "white";
         ctx.font = "bold 80px Arial";
@@ -227,7 +229,6 @@ function animate() {
         let obs = obstacles[i];
         obs.y += gameSpeed; 
         drawObstacle(obs);
-        // Immune if Invincible OR during the Countdown warning
         if (!isInvincible && !isWarning) {
             if (player.x + hitboxMargin < obs.x + obs.w - hitboxMargin && 
                 player.x + player.w - hitboxMargin > obs.x + hitboxMargin && 

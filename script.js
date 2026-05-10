@@ -13,8 +13,8 @@ let scoreInterval = null;
 
 // POWER-UP & TRANSITION STATES
 let isInvincible = false;
-let isWarning = false; // New state for the 3-2-1 phase
-let countdownValue = ""; // Holds the "3", "2", "1" string
+let isWarning = false; 
+let countdownValue = ""; 
 const hitboxMargin = 15; 
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -46,11 +46,10 @@ function playMusic() {
 function drawPlayer(x, y) {
     const cx = x + 35; const cy = y + 25;
     
-    // Visual indicator: Glow for Invincible, Blink for Warning
     if (isInvincible) { 
         ctx.shadowBlur = 20; ctx.shadowColor = "#fff200"; 
     } else if (isWarning && Math.floor(Date.now() / 100) % 2 === 0) {
-        ctx.globalAlpha = 0.5; // Flicker effect during countdown
+        ctx.globalAlpha = 0.5; 
     }
     
     const armWave = Math.sin(Date.now() / 150) * 4;
@@ -127,7 +126,7 @@ function activatePowerUp() {
 }
 
 function startCountdown() {
-    isWarning = true; // Player is still immune to obstacles during this
+    isWarning = true; 
     countdownValue = "3";
     playTone(300, 'sine', 0.1, 0.1);
 
@@ -164,11 +163,15 @@ function animate() {
     if (!gameActive) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Speed Control
+    // --- SPEED CONTROL WITH SMOOTH TRANSITION ---
+    let normalSpeed = 5 + (Math.floor(score / 10) * 1.5);
     if (isInvincible) {
         gameSpeed = 30;
+    } else if (isWarning) {
+        // Smoothly decelerate back to normal speed during the countdown
+        if (gameSpeed > normalSpeed) gameSpeed -= 0.3;
     } else {
-        gameSpeed = 5 + (Math.floor(score / 10) * 1.2);
+        gameSpeed = normalSpeed;
     }
 
     waterOffset += gameSpeed * 0.4;
@@ -184,8 +187,10 @@ function animate() {
 
     ctx.fillStyle = "#fd79a8"; ctx.fillRect(0,0,40,600); ctx.fillRect(360,0,40,600);
 
-    if (keys['ArrowLeft'] && player.x > 45) player.x -= 7;
-    if (keys['ArrowRight'] && player.x < 285) player.x += 7;
+    // --- CONTROLS (ARROW + WASD) ---
+    if ((keys['ArrowLeft'] || keys['KeyA']) && player.x > 45) player.x -= 7;
+    if ((keys['ArrowRight'] || keys['KeyD']) && player.x < 285) player.x += 7;
+    
     drawPlayer(player.x, player.y);
 
     // Draw Countdown Text

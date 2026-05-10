@@ -11,10 +11,10 @@ let waterOffset = 0;
 let beat = 0;
 let scoreInterval = null;
 
-// POWER-UP STATES
+// POWER-UP & TRANSITION STATES
 let isInvincible = false;
-let isSlowMo = false; 
-let savedSpeed = 5; 
+let isWarning = false; // New state for the 3-2-1 phase
+let countdownValue = ""; // Holds the "3", "2", "1" string
 const hitboxMargin = 15; 
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -33,10 +33,7 @@ function playTone(freq, type, duration, volume) {
 
 function playMusic() {
     if (!gameActive) return;
-    let tempo;
-    if (isInvincible) tempo = 100;
-    else if (isSlowMo) tempo = 400; 
-    else tempo = Math.max(140, 280 - (gameSpeed * 8));
+    let tempo = isInvincible ? 100 : Math.max(140, 280 - (gameSpeed * 8));
 
     if (beat % 2 === 0) playTone(isInvincible ? 440 : 110, 'triangle', 0.2, 0.1); 
     else playTone(isInvincible ? 554 : 146.83, 'triangle', 0.2, 0.05);
@@ -48,8 +45,13 @@ function playMusic() {
 
 function drawPlayer(x, y) {
     const cx = x + 35; const cy = y + 25;
-    if (isInvincible) { ctx.shadowBlur = 20; ctx.shadowColor = "#fff200"; }
-    if (isSlowMo) { ctx.shadowBlur = 10; ctx.shadowColor = "#a2d2ff"; }
+    
+    // Visual indicator: Glow for Invincible, Blink for Warning
+    if (isInvincible) { 
+        ctx.shadowBlur = 20; ctx.shadowColor = "#fff200"; 
+    } else if (isWarning && Math.floor(Date.now() / 100) % 2 === 0) {
+        ctx.globalAlpha = 0.5; // Flicker effect during countdown
+    }
     
     const armWave = Math.sin(Date.now() / 150) * 4;
     ctx.fillStyle = "#f1c27d";
@@ -62,7 +64,9 @@ function drawPlayer(x, y) {
     ctx.beginPath(); ctx.arc(cx, cy - 5, 15, 0, Math.PI * 2); ctx.fill(); 
     ctx.fillStyle = "#0984e3";
     ctx.beginPath(); ctx.arc(cx, cy - 8, 15, Math.PI, 0); ctx.fill(); 
+    
     ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1.0;
 }
 
 function drawLifeJacket(pu) {
@@ -98,7 +102,6 @@ function drawObstacle(obs) {
         ctx.beginPath(); ctx.roundRect(x+10, y+15, 20, 10, 8); ctx.fill();
         ctx.beginPath(); ctx.roundRect(x+15, y+5, 10, 10, 5); ctx.fill();
     } else {
-        // --- YELLOW PUDDLE ---
         ctx.fillStyle = "rgba(255, 230, 0, 0.6)"; 
         ctx.beginPath(); ctx.ellipse(x+20, y+20, 28, 14, 0.1, 0, Math.PI*2); ctx.fill();
     }
@@ -107,11 +110,7 @@ function drawObstacle(obs) {
 // --- POWER-UP LOGIC ---
 
 function activatePowerUp() {
-    // Remember speed before the boost
-    savedSpeed = 5 + (Math.floor(score / 10) * 1.2);
-    
     isInvincible = true;
-    isSlowMo = false; 
     gameSpeed = 30; 
     playTone(523, 'square', 0.5, 0.1);
     
@@ -122,13 +121,23 @@ function activatePowerUp() {
         if (gained >= 75) { 
             clearInterval(boost); 
             isInvincible = false;
-            isSlowMo = true;
-            // After slow-mo, return to score-based speed
-            setTimeout(() => { 
-                isSlowMo = false; 
-            }, 5000); 
+            startCountdown();
         }
     }, 30);
+}
+
+function startCountdown() {
+    isWarning = true; // Player is still immune to obstacles during this
+    countdownValue = "3";
+    playTone(300, 'sine', 0.1, 0.1);
+
+    setTimeout(() => { countdownValue = "2"; playTone(300, 'sine', 0.1, 0.1); }, 1000);
+    setTimeout(() => { countdownValue = "1"; playTone(300, 'sine', 0.1, 0.1); }, 2000);
+    setTimeout(() => { 
+        isWarning = false; 
+        countdownValue = ""; 
+        playTone(600, 'sine', 0.2, 0.1);
+    }, 3000);
 }
 
 // --- MAIN LOOP ---
@@ -136,6 +145,7 @@ function activatePowerUp() {
 function startGame() {
     if (audioCtx.state === 'suspended') audioCtx.resume();
     gameActive = true; score = 0; gameSpeed = 4; obstacles = []; powerUps = []; player.x = 165;
+    isInvincible = false; isWarning = false; countdownValue = "";
     document.getElementById('start-screen').style.display = 'none';
     document.getElementById('game-over').style.display = 'none';
     document.getElementById('leaderboard-screen').style.display = 'none';
@@ -157,8 +167,6 @@ function animate() {
     // Speed Control
     if (isInvincible) {
         gameSpeed = 30;
-    } else if (isSlowMo) {
-        gameSpeed = 2;
     } else {
         gameSpeed = 5 + (Math.floor(score / 10) * 1.2);
     }
@@ -167,7 +175,7 @@ function animate() {
     if (waterOffset > 100) waterOffset = 0;
     for (let i = -100; i < canvas.height; i += 50) {
         ctx.beginPath();
-        ctx.strokeStyle = isInvincible ? "white" : (isSlowMo ? "rgba(255,255,255,0.4)" : `rgba(255, 255, 255, ${0.15 + (Math.sin(i + waterOffset) * 0.05)})`);
+        ctx.strokeStyle = isInvincible ? "white" : `rgba(255, 255, 255, ${0.15 + (Math.sin(i + waterOffset) * 0.05)})`;
         ctx.lineWidth = isInvincible ? 6 : 3;
         ctx.moveTo(40, i + waterOffset);
         ctx.bezierCurveTo(150, i + waterOffset - 25, 250, i + waterOffset + 25, 360, i + waterOffset);
@@ -180,42 +188,47 @@ function animate() {
     if (keys['ArrowRight'] && player.x < 285) player.x += 7;
     drawPlayer(player.x, player.y);
 
-    if (!isInvincible && Math.random() < 0.05) {
+    // Draw Countdown Text
+    if (countdownValue !== "") {
+        ctx.fillStyle = "white";
+        ctx.font = "bold 80px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(countdownValue, canvas.width / 2, canvas.height / 2);
+    }
+
+    // Spawning Logic
+    if (!isInvincible && !isWarning && Math.random() < 0.05) {
         const lane = Math.floor(Math.random() * 3);
         if (obstacles.filter(o => o.y < 120).length < 2) {
             obstacles.push({ x: 65 + (lane * 100), y: -60, type: ['ice-cream', 'poo', 'puddle'][Math.floor(Math.random()*3)], w: 40, h: 40 });
         }
     }
     
-    if (score >= 40 && powerUps.length === 0 && !isInvincible && Math.random() < 0.006) {
+    if (score >= 40 && powerUps.length === 0 && !isInvincible && !isWarning && Math.random() < 0.006) {
         powerUps.push({ x: 65 + (Math.floor(Math.random() * 3) * 100), y: -100, w: 40, h: 45 });
     }
 
-    // Process Power-Ups (Reverse loop)
+    // Process Objects
     for (let i = powerUps.length - 1; i >= 0; i--) {
         let pu = powerUps[i];
         pu.y += gameSpeed; 
         drawLifeJacket(pu);
         if (player.x < pu.x + pu.w && player.x + player.w > pu.x && player.y < pu.y + pu.h && player.y + player.h > pu.y) {
-            powerUps.splice(i, 1); 
-            activatePowerUp();
-        } else if (pu.y > 600) {
-            powerUps.splice(i, 1);
-        }
+            powerUps.splice(i, 1); activatePowerUp();
+        } else if (pu.y > 600) powerUps.splice(i, 1);
     }
 
-    // Process Obstacles (Reverse loop)
     for (let i = obstacles.length - 1; i >= 0; i--) {
         let obs = obstacles[i];
         obs.y += gameSpeed; 
         drawObstacle(obs);
-        if (!isInvincible) {
+        // Immune if Invincible OR during the Countdown warning
+        if (!isInvincible && !isWarning) {
             if (player.x + hitboxMargin < obs.x + obs.w - hitboxMargin && 
                 player.x + player.w - hitboxMargin > obs.x + hitboxMargin && 
                 player.y + hitboxMargin < obs.y + obs.h - hitboxMargin && 
                 player.y + player.h - hitboxMargin > obs.y + hitboxMargin) {
-                playTone(150, 'sawtooth', 0.5, 0.1); 
-                endGame();
+                playTone(150, 'sawtooth', 0.5, 0.1); endGame();
             }
         }
         if (obs.y > 600) obstacles.splice(i, 1);
